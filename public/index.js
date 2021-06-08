@@ -1,6 +1,135 @@
 let transactions = [];
 let myChart;
 
+
+/** ------------------------ */
+const populateIndexedDB = (tsats) => {
+
+
+  const request = window.indexedDB.open("budgetTransactions", 1);
+
+  // Create schema
+  request.onupgradeneeded = event => {
+    console.log('installing schema to indexedDB');
+    const db = event.target.result;
+    
+    const budgetTransactionsStore = db.createObjectStore("budgetTransactions", {keyPath: "ID", autoIncrement: true});
+    budgetTransactionsStore.createIndex("name", "name"); 
+    budgetTransactionsStore.createIndex("value", "value"); 
+    budgetTransactionsStore.createIndex("date", "date");
+
+
+  }
+
+  request.onsuccess = () => {
+    const db = request.result;
+    const transaction = db.transaction(["budgetTransactions"], "readwrite");
+    const budgetTransactionsStore = transaction.objectStore("budgetTransactions");
+
+    const allReq = budgetTransactionsStore.getAll();
+
+    let ctsats = [];
+
+    allReq.onsuccess = function(e) {                    
+      ctsats = [...allReq.result]
+      console.log({ctsats});
+
+      const clientDate = new Date(ctsats[ctsats.length-1]?.date || new Date(0));
+      const serverDate = new Date(tsats[tsats.length - 1]?.date);
+
+      console.log({ctsats, tsats, clientDate, serverDate});
+
+      if(serverDate === clientDate){
+        console.log('server connected and up to date')
+        return;}
+      
+      
+
+      if(serverDate > clientDate){
+        console.log('client out of date')
+        const tsats_red = [];
+        tsats.forEach(tsat => {
+          if (new Date(tsat.date) > new Date(clientDate)){
+            tsats_red.push(tsat);
+          }
+        })
+        console.log('adding objects', tsats_red);
+
+
+
+
+        tsats_red.forEach(({name, value, date}) => {
+          budgetTransactionsStore.add({name, value, date});
+        })
+
+        return;
+      }
+
+      if(serverDate < clientDate){
+        console.log('server out of date')
+        const ctsats_red = [];
+        ctsats.forEach(ctsat => {
+          if (new Date(ctsat.date) > new Date(serverDate)){
+            ctsats_red.push(ctsat);
+          }
+        })
+        console.log('sending objects to server', ctsats_red)
+
+        fetch('/api/transaction/bulk', {
+          headers: {'content-type': 'application/json'},
+          body: JSON.stringify(ctsats_red),
+          method: 'post'
+        })
+        .then(result => {
+          console.log('successfully posted data');
+        })
+        .then(result => {
+          window.location.reload();
+        })
+        .catch(err => {
+          console.error(err);
+        })
+
+        return;
+      }
+    };
+  };
+}
+
+
+
+/** ------------------------ */
+const saveRecord = (tsat) => {
+  const request = window.indexedDB.open("budgetTransactions", 1);
+
+  // Create schema
+  request.onupgradeneeded = event => {
+    console.log('installing schema to indexedDB');
+    const db = event.target.result;
+    
+    const budgetTransactionsStore = db.createObjectStore("budgetTransactions", {keyPath: "ID"});
+    budgetTransactionsStore.autoIncrement = true;
+    budgetTransactionsStore.createIndex("name", "name"); 
+    budgetTransactionsStore.createIndex("value", "value"); 
+    budgetTransactionsStore.createIndex("date", "date");
+
+
+  }
+
+  request.onsuccess = () => {
+    const db = request.result;
+    const transaction = db.transaction(["budgetTransactions"], "readwrite");
+    const budgetTransactionsStore = transaction.objectStore("budgetTransactions");
+
+    console.log('adding object', tsat);
+    const transReq = budgetTransactionsStore.add(tsat);
+    transReq.onsuccess = () => {
+      console.log('object added')
+    }
+
+  };
+}
+
 fetch("/api/transaction")
   .then(response => {
     return response.json();
@@ -12,6 +141,10 @@ fetch("/api/transaction")
     populateTotal();
     populateTable();
     populateChart();
+    populateIndexedDB(transactions);
+  })
+  .catch(err => {
+
   });
 
 function populateTotal() {
