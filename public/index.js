@@ -1,6 +1,7 @@
 let transactions = [];
 let myChart;
 
+
 fetch("/api/transaction")
   .then(response => {
     return response.json();
@@ -12,6 +13,7 @@ fetch("/api/transaction")
     populateTotal();
     populateTable();
     populateChart();
+    populateIDB();
   });
 
 function populateTotal() {
@@ -77,6 +79,27 @@ function populateChart() {
     }
   });
 }
+
+function populateIDB() {
+
+  const transaction = db.transaction(['BudgetStore'], 'readwrite');
+  // Access your BudgetStore object store
+  const store = transaction.objectStore('BudgetStore');
+
+  const allIDBRecords = store.getAll();
+  allIDBRecords.onsuccess = () => {
+
+    if(allIDBRecords.result.length < transactions.length){
+      const clearReq = store.clear();
+      clearReq.onsuccess = () => {
+        transactions.forEach(transaction => {
+          saveRecord(transaction)
+        })
+      }
+    }
+  }
+}
+
 
 function sendTransaction(isAdding) {
   let nameEl = document.querySelector("#t-name");
