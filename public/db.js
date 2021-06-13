@@ -2,7 +2,7 @@ let db;
 let budgetVersion;
 
 // Create a new db request for a "budget" database.
-const request = indexedDB.open('BudgetDB', budgetVersion || 1);
+const request = indexedDB.open('BudgetDB', budgetVersion || 21);
 
 request.onupgradeneeded = function (e) {
   console.log('Upgrade needed in IndexDB');
@@ -15,12 +15,7 @@ request.onupgradeneeded = function (e) {
   db = e.target.result;
 
   if (db.objectStoreNames.length === 0) {
-    const objectStore = db.createObjectStore('BudgetStore', { autoIncrement: true });
-    objectStore.createIndex('_id', '_id');
-    objectStore.createIndex('name', 'name');
-    objectStore.createIndex('value', 'value');
-    objectStore.createIndex('date', 'date');
-    objectStore.createIndex('__v', '__v');
+    db.createObjectStore('BudgetStore', { autoIncrement: true });
   }
 };
 
@@ -66,13 +61,14 @@ function checkDatabase() {
             currentStore.clear();
             console.log('Clearing store 🧹');
           }
+        }).catch(e => {
+            console.error(e);
         });
     }
   };
 }
 
 request.onsuccess = function (e) {
-  console.log('success');
   db = e.target.result;
 
   // Check if app is online before reading from db

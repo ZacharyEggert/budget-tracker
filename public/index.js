@@ -10,10 +10,28 @@ fetch("/api/transaction")
     // save db data on global variable
     transactions = data;
 
+    if(navigator.onLine){
+      const dbRequest = indexedDB.open('BudgetDB', budgetVersion || 21);
+      dbRequest.onsuccess = (e) => {
+        const db = e.target.result;
+        const transaction = db.transaction(['BudgetStore'], 'readwrite');
+        const store = transaction.objectStore('BudgetStore');
+        const getAll = store.getAll();
+        getAll.onsuccess = () => {
+          if(getAll.result.length > 0){
+            getAll.result.forEach(e => {
+              console.log(e);
+              transactions.unshift(e)
+            })
+          }
+        }
+      }
+    }
+
+
     populateTotal();
     populateTable();
     populateChart();
-    populateIDB();
   });
 
 function populateTotal() {
@@ -80,26 +98,6 @@ function populateChart() {
   });
 }
 
-function populateIDB() {
-
-  const transaction = db.transaction(['BudgetStore'], 'readwrite');
-  // Access your BudgetStore object store
-  const store = transaction.objectStore('BudgetStore');
-
-  const allIDBRecords = store.getAll();
-  allIDBRecords.onsuccess = () => {
-
-    if(allIDBRecords.result.length < transactions.length){
-      const clearReq = store.clear();
-      clearReq.onsuccess = () => {
-        transactions.forEach(transaction => {
-          saveRecord(transaction)
-        })
-      }
-    }
-  }
-}
-
 
 function sendTransaction(isAdding) {
   let nameEl = document.querySelector("#t-name");
@@ -156,11 +154,14 @@ function sendTransaction(isAdding) {
       nameEl.value = "";
       amountEl.value = "";
     }
+
+    fetch('/api/transaction');
+
   })
   .catch(err => {
     // fetch failed, so save in indexed db
     saveRecord(transaction);
-
+    console.log('saving in indexedDB');
     // clear form
     nameEl.value = "";
     amountEl.value = "";
