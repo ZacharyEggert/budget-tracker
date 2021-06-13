@@ -1,6 +1,8 @@
 let transactions = [];
 let myChart;
 
+window.isOnline = true;
+
 fetch("/api/transaction")
   .then(response => {
     return response.json();
@@ -8,6 +10,25 @@ fetch("/api/transaction")
   .then(data => {
     // save db data on global variable
     transactions = data;
+
+    if(navigator.onLine){
+      const dbRequest = indexedDB.open('BudgetDB', budgetVersion || 21);
+      dbRequest.onsuccess = (e) => {
+        const db = e.target.result;
+        const transaction = db.transaction(['BudgetStore'], 'readwrite');
+        const store = transaction.objectStore('BudgetStore');
+        const getAll = store.getAll();
+        getAll.onsuccess = () => {
+          if(getAll.result.length > 0){
+            getAll.result.forEach(e => {
+              console.log(e);
+              transactions.unshift(e)
+            })
+          }
+        }
+      }
+    }
+
 
     populateTotal();
     populateTable();
@@ -133,11 +154,14 @@ function sendTransaction(isAdding) {
       nameEl.value = "";
       amountEl.value = "";
     }
+
+    fetch('/api/transaction');
+
   })
   .catch(err => {
     // fetch failed, so save in indexed db
     saveRecord(transaction);
-
+    console.log('saving in indexedDB');
     // clear form
     nameEl.value = "";
     amountEl.value = "";
